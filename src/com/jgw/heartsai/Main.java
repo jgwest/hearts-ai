@@ -1,19 +1,17 @@
 package com.jgw.heartsai;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.IntStream;
 
-import org.fusesource.jansi.Ansi;
 import org.fusesource.jansi.AnsiConsole;
 
-import com.jgw.heartsai.Card.Suit;
 import com.jgw.heartsai.State.Phase;
 import com.jgw.heartsai.State.RoundType;
 import com.jgw.heartsai.actions.Action;
+import com.jgw.heartsai.actions.Action.ActionType;
 import com.jgw.heartsai.actions.PassThreeCards;
+import com.jgw.heartsai.util.HeartsUtil;
 
 public class Main {
 
@@ -21,17 +19,17 @@ public class Main {
 
 		AnsiConsole.systemInstall();
 
-		System.out.println(Ansi.ansi().fgRed().a("Hi").reset());
+//		System.out.println(Ansi.ansi().fgRed().a("Hi").reset());
 
 		CardPile centerPile = CardPile.EMPTY;
 		{
-			List<Card> cards = new ArrayList<>();
+			List<Card> cards = Card.ALL_CARDS;
 
-			Arrays.asList(Suit.values()).forEach(suit -> {
-				IntStream.range(0, 13).forEach(val -> {
-					cards.add(new Card(val, suit));
-				});
-			});
+//			Arrays.asList(Suit.values()).forEach(suit -> {
+//				IntStream.range(1, 14).forEach(val -> {
+//					cards.add(new Card(val, suit));
+//				});
+//			});
 
 			centerPile = centerPile.addCards(cards.toArray(new Card[cards.size()]));
 		}
@@ -47,7 +45,12 @@ public class Main {
 			playerPiles[playerIndex] = CardPile.EMPTY.addCards(playerCards);
 		}
 
-		State initialState = new State(playerPiles, centerPile, 0, Phase.INITIAL, RoundType.PASS_GT);
+		SlowState slowState = new SlowState(0);
+
+		State initialState = new State(playerPiles, centerPile, new CardPile[4], 0, Phase.INITIAL, RoundType.PASS_GT,
+				slowState);
+
+		// -----------------
 
 		State currentState = initialState;
 		while (true) {
@@ -57,12 +60,122 @@ public class Main {
 				continue;
 			}
 
-			if (currentState.getPhase() == Phase.PASS) {
-				// are we generating all combos, as with fridai?
+			Action selectedAction = MainUI.getPlayerAction(currentState);
+
+			currentState = doAction(selectedAction, currentState);
+
+//			if (currentState.getPhase() == Phase.PASS) {
+//				// are we generating all combos, as with fridai?
+//			}
+
+		}
+
+	}
+
+	private static State doAction(Action action, State state) {
+		if (state.getPhase() == Phase.INITIAL) {
+			HeartsUtil.throwErr("Invalid state");
+			return null;
+		}
+
+		if (state.getPhase() == Phase.PASS) {
+
+			State newState = state;
+
+			if (action.getType() == ActionType.PASS_3_CARDS) {
+
+				if (state.getRoundType() == RoundType.DONT_PASS) {
+					HeartsUtil.throwErr("Invalid state");
+					return null;
+				}
+
+				PassThreeCards passThreeCards = (PassThreeCards) action;
+
+				// Remove passed cards from hand
+				{
+					CardPile playerHand = state.getPlayerCards()[state.getPlayerTurn()];
+					CardPile newPlayerHand = playerHand.removeCards(passThreeCards.getCards());
+					newState = newState.replacePlayerHand(state.getPlayerTurn(), newPlayerHand);
+				}
+
+				// Add passed cards to passed cards pile
+				{
+					CardPile newPlayerPassCards = CardPile.EMPTY.addCards(passThreeCards.getCards());
+					newState = newState.replacePlayerPassCards(state.getPlayerTurn(), newPlayerPassCards);
+				}
+
+			} else {
+				HeartsUtil.throwErr("Invalid action: " + action);
+			}
+
+			// Update to next player turn
+			int nextPlayer = (state.getPlayerTurn() + 1) % 4;
+			if (nextPlayer == state.getSlowState().getStartingPlayerIndex()) {
+
+				newState = state.toPhase(Phase.PLAY);
+
+				for (int sourcePlayerIndex = 0; sourcePlayerIndex < state
+						.getPlayerPassCards().length; sourcePlayerIndex++) {
+
+					CardPile cardsToPass = state.getPlayerPassCards()[sourcePlayerIndex];
+
+					int targetPlayerIndex;
+
+					if (state.getRoundType() == RoundType.PASS_GT) {
+						targetPlayerIndex = (nextPlayer + 1) % 4;
+
+					} else if (state.getRoundType() == RoundType.PASS_LT) {
+						targetPlayerIndex = (4 + nextPlayer - 1) % 4;
+
+					} else if (state.getRoundType() == RoundType.PASS_PLUS_TWO_MOD_4) {
+						targetPlayerIndex = (nextPlayer + 2) % 4;
+
+					} else {
+						HeartsUtil.throwErr("Unexpected state");
+						return null;
+					}
+
+					CardPile newTargetPlayerHand = state.getPlayerPassCards()[targetPlayerIndex]
+							.addCards(cardsToPass.getCards());
+
+					if (newTargetPlayerHand.getCards().size() != 13) {
+						HeartsUtil.throwErr("Invalid hand size: " + newTargetPlayerHand.getCards().size());
+					}
+
+					newState = state.replacePlayerHand(targetPlayerIndex, newTargetPlayerHand);
+
+					// Clear the player pass cards
+					newState = state.replacePlayerPassCards(sourcePlayerIndex, CardPile.EMPTY);
+
+				}
+
+				// Add passed cards to next player's hand.
+			}
+
+			newState = state.toPlayerTurn(nextPlayer);
+			return newState;
+		}
+
+		if (state.getPhase() == Phase.PLAY) {
+
+			if (action.getType() != ActionType.PLAY_CARD && action.getType() != ActionType.SKIP_ROUND) {
+				HeartsUtil.throwErr("Invalid action: " + action);
+			}
+
+			if (action.getType() == ActionType.PLAY_CARD) {
+
+			} else if (action.getType() == ActionType.SKIP_ROUND) {
 
 			}
 
+			// Update to next player turn
+			int nextPlayer = (state.getPlayerTurn() + 1) % 4;
+
+			// TODO: Finish this.
 		}
+
+		HeartsUtil.throwErr("Unexpected state.");
+		return null;
 
 	}
 
@@ -74,17 +187,16 @@ public class Main {
 			throw new RuntimeException();
 		}
 
-		// TODO: We need actions that affect the game state
-
 		if (state.getPhase() == Phase.PASS) {
 
 			CardPile playerCards = state.getPlayerCards()[state.getPlayerTurn()];
 
 			List<Card> cards = new ArrayList<>(playerCards.getCards());
 
-			// Sort ascending by number
+			// Sort ascending by points value, then number
 			Collections.sort(cards, (a, b) -> {
-				return a.getNumber() - b.getNumber();
+				return (100 * (a.getPointsValue() - b.getPointsValue()))
+						+ (a.getNumberStrength() - b.getNumberStrength());
 			});
 
 			// pass the lowest value cards

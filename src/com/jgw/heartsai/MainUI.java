@@ -1,5 +1,6 @@
 package com.jgw.heartsai;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Scanner;
@@ -21,19 +22,61 @@ public class MainUI {
 		if (state.getPhase() == Phase.PASS) {
 			System.out.println("Player #: " + state.getPlayerTurn());
 		}
+
+		CardPile playerCards = state.getPlayerCards()[state.getPlayerTurn()];
+		System.out.println(cardList(playerCards.getCards()));
+
 	}
 
-	private static Action getPlayerAction(State state) {
+	public static Action getPlayerAction(State state) {
 
 		printUICurrentState(state);
 		System.out.println();
 
 		List<Action> actions = Main.generatePossibleMoves(state);
 
-		return null;
+		if (actions.size() == 0) {
+			HeartsUtil.throwErr("End of game?");
+		}
+
+		if (actions.size() == 1) {
+			Action action = actions.get(0);
+			System.out.println("* Automatically choosing action: " + action);
+			return action;
+		}
+
+		for (int x = 0; x < actions.size(); x++) {
+			Action action = actions.get(x);
+
+			printf("%d) %s", x + 1, action.toStringUI());
+
+		}
+
+		int result = readValidNumericInput(1, actions.size());
+
+		return actions.get(result - 1);
+
+	}
+
+	private static String cardList(List<Card> cardsParam) {
+		ArrayList<Card> sortedList = new ArrayList<>(cardsParam);
+		HeartsUtil.sortForUI(sortedList);
+
+		String res = "";
+		for (int x = 0; x < sortedList.size(); x++) {
+
+			res += sortedList.get(x).toStringUI() + " ";
+
+		}
+		return res;
+
 	}
 
 	// -----------------------------------------------------
+
+	private static void printf(String format, Object... args) {
+		System.out.printf(format + "\n", args);
+	}
 
 	private static int readValidNumericInput(int minVal, int maxVal) {
 

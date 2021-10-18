@@ -20,12 +20,26 @@ public class PassThreeCards extends Action {
 	}
 
 	@Override
+	public String toStringUI() {
+		return toStringInner(true);
+	}
+
+	@Override
 	public String toString() {
+		return toStringInner(false);
+	}
+
+	private String toStringInner(boolean UI) {
 		String res = this.getType().name() + ": ";
 
 		int count = 0;
 		for (Card c : cards) {
-			res += c.toString();
+			if (UI) {
+				res += c.toStringUI();
+			} else {
+				res += c.toString();
+			}
+
 			if (count != 2) {
 				res += ", ";
 			}
