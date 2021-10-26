@@ -31,6 +31,10 @@ public final class CardPile {
 		return new CardPile(newList);
 	}
 
+	public Card getTopCard() {
+		return cards.get(cards.size() - 1);
+	}
+
 	public CardPile shuffle() {
 		List<Card> newList = new ArrayList<>(cards);
 		Collections.shuffle(newList);
@@ -45,7 +49,7 @@ public final class CardPile {
 		return new CardPile(cards.subList(numCardsToRemove, cards.size()));
 	}
 
-	public CardPile removeCards(Card[] cardsToRemove) {
+	public CardPile removeCards(Card... cardsToRemove) {
 		List<Card> newPileWithoutCards = cards.stream().filter(card -> {
 			for (Card cardToRemove : cardsToRemove) {
 				if (cardToRemove == card) {
@@ -64,5 +68,10 @@ public final class CardPile {
 
 	public List<Card> getCards() {
 		return Collections.unmodifiableList(cards);
+	}
+
+	@Override
+	public String toString() {
+		return cards.toString();
 	}
 }

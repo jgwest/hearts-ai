@@ -115,4 +115,16 @@ public final class State {
 
 		return newState;
 	}
+
+	public State replaceCenterPile(CardPile newCentralCardPile) {
+
+		if (this.phase != Phase.PLAY) {
+			HeartsUtil.throwErr("Invalid phase");
+		}
+
+		State newState = new State(playerCards, newCentralCardPile, playerPassCards, playerTurn, phase, roundType,
+				slowState);
+
+		return newState;
+	}
 }

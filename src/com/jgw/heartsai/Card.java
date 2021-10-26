@@ -10,6 +10,13 @@ import org.fusesource.jansi.Ansi;
 
 public final class Card {
 
+	private static final int ACE = 1;
+	private static final int JACK = 11;
+	private static final int QUEEN = 12;
+	private static final int KING = 13;
+
+	public final static Card QUEEN_OF_SPADES;
+
 	public final static List<Card> ALL_CARDS;
 
 	private final int number;
@@ -18,6 +25,9 @@ public final class Card {
 	private final int absoluteIndex;
 
 	static {
+
+		Card queenOfSpades;
+
 		List<Card> cards = new ArrayList<>();
 
 		Arrays.asList(Suit.values()).forEach(suit -> {
@@ -25,6 +35,10 @@ public final class Card {
 				cards.add(new Card(val, suit));
 			});
 		});
+
+		queenOfSpades = cards.stream().filter(card -> card.getNumber() == QUEEN && card.getSuit() == Suit.SPADES)
+				.findFirst().get();
+		QUEEN_OF_SPADES = queenOfSpades;
 
 		ALL_CARDS = Collections.unmodifiableList(cards);
 
@@ -34,7 +48,7 @@ public final class Card {
 		this.number = number;
 		this.suit = suit;
 
-		this.absoluteIndex = (this.suit.ordinal()) * 13 + number;
+		this.absoluteIndex = (this.suit.ordinal()) * 13 + (number - 1);
 	}
 
 	public int getAbsoluteIndex() {
@@ -64,11 +78,6 @@ public final class Card {
 	public enum Suit {
 		DIAMONDS, CLUBS, HEARTS, SPADES
 	};
-
-	private static final int ACE = 1;
-	private static final int JACK = 11;
-	private static final int QUEEN = 12;
-	private static final int KING = 13;
 
 	public int getPointsValue() {
 		if (this.getNumber() == QUEEN && this.getSuit() == Suit.SPADES) {

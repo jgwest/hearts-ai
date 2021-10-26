@@ -4,7 +4,7 @@ import com.jgw.heartsai.Card;
 
 public class PlayCard extends Action {
 
-	private static final PlayCard[] PASS_CARD_ACTIONS;
+	public static final PlayCard[] PASS_CARD_ACTIONS;
 
 	static {
 		PASS_CARD_ACTIONS = new PlayCard[52];
@@ -26,5 +26,15 @@ public class PlayCard extends Action {
 
 	public Card getCard() {
 		return card;
+	}
+
+	@Override
+	public String toString() {
+		return super.toString() + ": " + card;
+	}
+
+	@Override
+	public String toStringUI() {
+		return super.toString() + ": " + card.toStringUI();
 	}
 }
