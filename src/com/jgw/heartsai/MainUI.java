@@ -23,6 +23,16 @@ public class MainUI {
 			System.out.println("Player #: " + state.getPlayerTurn());
 		}
 
+		if (state.getPhase() == Phase.PLAY) {
+
+			if (state.getPlayerTurn() == state.getSlowState().getStartingPlayerIndex()) {
+				System.out.println("Top card: N/A");
+			} else {
+				System.out.println("Top card: " + state.getCenterPile().getTopCard().toStringUI());
+			}
+
+		}
+
 		CardPile playerCards = state.getPlayerCards()[state.getPlayerTurn()];
 		System.out.println(cardList(playerCards.getCards()));
 

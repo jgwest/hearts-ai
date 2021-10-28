@@ -77,128 +77,221 @@ public class Main {
 
 	}
 
+	private static State doPassPhaseActions(Action action, State stateParam) {
+
+		int playerTurn = stateParam.getPlayerTurn();
+
+		StateBuilder state = stateParam.mutate();
+
+		if (action.getType() != ActionType.PASS_3_CARDS) {
+			HeartsUtil.throwErr("Invalid action: " + action);
+			return null;
+		}
+
+		if (stateParam.getRoundType() == RoundType.DONT_PASS) {
+			HeartsUtil.throwErr("Invalid state");
+			return null;
+		}
+
+		PassThreeCards passThreeCards = (PassThreeCards) action;
+
+		// Remove passed cards from hand
+		{
+			CardPile playerHand = stateParam.getPlayerCards()[playerTurn];
+			CardPile newPlayerHand = playerHand.removeCards(passThreeCards.getCards());
+			state = state.replacePlayerHand(playerTurn, newPlayerHand);
+		}
+
+		// Add passed cards to passed cards pile
+		{
+			CardPile newPlayerPassCards = CardPile.EMPTY.addCards(passThreeCards.getCards());
+			state = state.replacePlayerPassCards(playerTurn, newPlayerPassCards);
+		}
+
+		// TODO: This is wrong, should use 2 of clubs.
+		// Update to next player turn
+		int nextPlayer = (playerTurn + 1) % 4;
+		state = state.setPlayerTurn(nextPlayer);
+
+		if (nextPlayer == stateParam.getSlowState().getStartingPlayerIndex()) {
+
+//			// Pass all four players cards to the appropriate receiver
+//			for (int sourcePlayerIndex = 0; sourcePlayerIndex < 4; sourcePlayerIndex++) {
+//
+//				CardPile cardsToPass = stateParam.getPlayerPassCards()[sourcePlayerIndex];
+//
+//				if (cardsToPass.getCards().size() == 0 && stateParam.getRoundType() != RoundType.DONT_PASS) {
+//					HeartsUtil.throwErr("Player provided no cards to pass: " + cardsToPass);
+//					return null;
+//				}
+//
+//				int targetPlayerIndex;
+//
+//				if (stateParam.getRoundType() == RoundType.PASS_GT) {
+//					targetPlayerIndex = (sourcePlayerIndex + 1) % 4;
+//
+//				} else if (stateParam.getRoundType() == RoundType.PASS_LT) {
+//					targetPlayerIndex = (4 + sourcePlayerIndex - 1) % 4;
+//
+//				} else if (stateParam.getRoundType() == RoundType.PASS_PLUS_TWO_MOD_4) {
+//					targetPlayerIndex = (sourcePlayerIndex + 2) % 4;
+//
+//				} else {
+//					HeartsUtil.throwErr("Unexpected state");
+//					return null;
+//				}
+//
+//				System.out.println("pass index: " + sourcePlayerIndex + " -> " + targetPlayerIndex);
+//
+//				CardPile newTargetPlayerHand = stateParam.getPlayerCards()[targetPlayerIndex]
+//						.addCards(cardsToPass.getCards());
+//
+//				state = state.replacePlayerHand(targetPlayerIndex, newTargetPlayerHand);
+//
+//				// Clear the player pass cards
+//				state = state.replacePlayerPassCards(sourcePlayerIndex, CardPile.EMPTY);
+//
+//			}
+//
+//			// Add passed cards to next player's hand.
+//			state = state.setPhase(Phase.PLAY);
+//			phaseChange = true;
+
+			return finalizePassRound(state.build());
+
+		}
+
+		State finalState = state.build();
+		return finalState;
+
+	}
+
+	private static State finalizePassRound(State stateParam) {
+
+		StateBuilder state = stateParam.mutate();
+
+		// Pass all four players cards to the appropriate receiver
+		for (int sourcePlayerIndex = 0; sourcePlayerIndex < 4; sourcePlayerIndex++) {
+
+			CardPile cardsToPass = stateParam.getPlayerPassCards()[sourcePlayerIndex];
+
+			if (cardsToPass.getCards().size() == 0 && stateParam.getRoundType() != RoundType.DONT_PASS) {
+				HeartsUtil.throwErr("Player provided no cards to pass: " + cardsToPass);
+				return null;
+			}
+
+			int targetPlayerIndex;
+
+			if (stateParam.getRoundType() == RoundType.PASS_GT) {
+				targetPlayerIndex = (sourcePlayerIndex + 1) % 4;
+
+			} else if (stateParam.getRoundType() == RoundType.PASS_LT) {
+				targetPlayerIndex = (4 + sourcePlayerIndex - 1) % 4;
+
+			} else if (stateParam.getRoundType() == RoundType.PASS_PLUS_TWO_MOD_4) {
+				targetPlayerIndex = (sourcePlayerIndex + 2) % 4;
+
+			} else {
+				HeartsUtil.throwErr("Unexpected state");
+				return null;
+			}
+
+			System.out.println("pass index: " + sourcePlayerIndex + " -> " + targetPlayerIndex);
+
+			CardPile newTargetPlayerHand = stateParam.getPlayerCards()[targetPlayerIndex]
+					.addCards(cardsToPass.getCards());
+
+			state = state.replacePlayerHand(targetPlayerIndex, newTargetPlayerHand);
+
+			// Clear the player pass cards
+			state = state.replacePlayerPassCards(sourcePlayerIndex, CardPile.EMPTY);
+
+		}
+
+		// Add passed cards to next player's hand.
+		state = state.setPhase(Phase.PLAY);
+
+		State finalState = state.build();
+
+		// If we switch to 'play' phase, make sure our invariants are still true.
+		if (Arrays.asList(finalState.getPlayerPassCards()).stream().anyMatch(cards -> cards.getCards().size() != 0)) {
+			HeartsUtil.throwErr(
+					"Invalid player pass card size detected: " + Arrays.asList(finalState.getPlayerPassCards()));
+			return null;
+		}
+
+		if (Arrays.asList(finalState.getPlayerCards()).stream().anyMatch(cards -> cards.getCards().size() != 13)) {
+			HeartsUtil.throwErr("Invalid hand size detected: " + Arrays.asList(finalState.getPlayerCards()));
+			return null;
+		}
+
+		return finalState;
+	}
+
 	private static State doAction(Action action, State stateParam) {
 		if (stateParam.getPhase() == Phase.INITIAL) {
 			HeartsUtil.throwErr("Invalid state");
 			return null;
 		}
 
-		State state = stateParam;
-
-		if (state.getPhase() == Phase.PASS) {
-
-			if (action.getType() == ActionType.PASS_3_CARDS) {
-
-				if (state.getRoundType() == RoundType.DONT_PASS) {
-					HeartsUtil.throwErr("Invalid state");
-					return null;
-				}
-
-				PassThreeCards passThreeCards = (PassThreeCards) action;
-
-				// Remove passed cards from hand
-				{
-					CardPile playerHand = state.getPlayerCards()[state.getPlayerTurn()];
-					CardPile newPlayerHand = playerHand.removeCards(passThreeCards.getCards());
-					state = state.replacePlayerHand(state.getPlayerTurn(), newPlayerHand);
-				}
-
-				// Add passed cards to passed cards pile
-				{
-					CardPile newPlayerPassCards = CardPile.EMPTY.addCards(passThreeCards.getCards());
-					state = state.replacePlayerPassCards(state.getPlayerTurn(), newPlayerPassCards);
-				}
-
-			} else {
-				HeartsUtil.throwErr("Invalid action: " + action);
-			}
-
-			// Update to next player turn
-			int nextPlayer = (state.getPlayerTurn() + 1) % 4;
-			if (nextPlayer == state.getSlowState().getStartingPlayerIndex()) {
-
-				for (int sourcePlayerIndex = 0; sourcePlayerIndex < state
-						.getPlayerPassCards().length; sourcePlayerIndex++) {
-
-					CardPile cardsToPass = state.getPlayerPassCards()[sourcePlayerIndex];
-
-					int targetPlayerIndex;
-
-					if (state.getRoundType() == RoundType.PASS_GT) {
-						targetPlayerIndex = (sourcePlayerIndex + 1) % 4;
-
-					} else if (state.getRoundType() == RoundType.PASS_LT) {
-						targetPlayerIndex = (4 + sourcePlayerIndex - 1) % 4;
-
-					} else if (state.getRoundType() == RoundType.PASS_PLUS_TWO_MOD_4) {
-						targetPlayerIndex = (sourcePlayerIndex + 2) % 4;
-
-					} else {
-						HeartsUtil.throwErr("Unexpected state");
-						return null;
-					}
-
-					System.out.println("pass index: " + sourcePlayerIndex + " -> " + targetPlayerIndex);
-
-					CardPile newTargetPlayerHand = state.getPlayerCards()[targetPlayerIndex]
-							.addCards(cardsToPass.getCards());
-
-					state = state.replacePlayerHand(targetPlayerIndex, newTargetPlayerHand);
-
-					// Clear the player pass cards
-					state = state.replacePlayerPassCards(sourcePlayerIndex, CardPile.EMPTY);
-
-				}
-
-				if (Arrays.asList(state.getPlayerPassCards()).stream()
-						.anyMatch(cards -> cards.getCards().size() != 0)) {
-					HeartsUtil.throwErr(
-							"Invalid player pass card size detected: " + Arrays.asList(state.getPlayerPassCards()));
-					return null;
-				}
-
-				if (Arrays.asList(state.getPlayerCards()).stream().anyMatch(cards -> cards.getCards().size() != 13)) {
-					HeartsUtil.throwErr("Invalid hand size detected: " + Arrays.asList(state.getPlayerCards()));
-					return null;
-				}
-
-				// Add passed cards to next player's hand.
-				state = state.toPhase(Phase.PLAY);
-			}
-
-			state = state.toPlayerTurn(nextPlayer);
-			return state;
+		if (stateParam.getPhase() == Phase.PASS) {
+			return doPassPhaseActions(action, stateParam);
 		}
 
-		if (state.getPhase() == Phase.PLAY) {
+		if (stateParam.getPhase() == Phase.PLAY) {
+			int playerTurn = stateParam.getPlayerTurn();
+
+			StateBuilder state = stateParam.mutate();
 
 			if (action.getType() != ActionType.PLAY_CARD && action.getType() != ActionType.SKIP_ROUND) {
 				HeartsUtil.throwErr("Invalid action: " + action);
 				return null;
 			}
 
+			boolean cardPlayed = false;
+
 			if (action.getType() == ActionType.PLAY_CARD) {
 
 				PlayCard playCardAction = (PlayCard) action;
 
 				// Add the card to the center pile
-				CardPile newCenterPile = state.getCenterPile().addCards(playCardAction.getCard());
-				state = state.replaceCenterPile(newCenterPile);
+				CardPile newCenterPile = stateParam.getCenterPile().addCards(playCardAction.getCard());
+				state = state.setCenterPile(newCenterPile);
 
 				// Remove the card from the player's hand
-				CardPile newPlayerCards = state.getPlayerCards()[state.getPlayerTurn()]
-						.removeCards(playCardAction.getCard());
-				state = state.replacePlayerPassCards(state.getPlayerTurn(), newPlayerCards);
+				CardPile newPlayerCards = stateParam.getPlayerCards()[playerTurn].removeCards(playCardAction.getCard());
+				state = state.replacePlayerHand(playerTurn, newPlayerCards);
+
+				cardPlayed = true;
 
 			} else if (action.getType() == ActionType.SKIP_ROUND) {
 				// No action needed.
+			} else {
+				HeartsUtil.throwErr("Unexpected action: " + action);
+				return null;
 			}
 
 			// Update to next player turn
-			int nextPlayer = (state.getPlayerTurn() + 1) % 4;
+			state = state.setPlayerTurn((playerTurn + 1) % 4);
+			// TODO: This is wrong.
 
-			state = state.toPlayerTurn(nextPlayer);
-			return state;
+			State finalState = state.build();
+
+			// Verify our state invariant has not changed.
+			if (cardPlayed) {
+				if (stateParam.getPlayerCards()[playerTurn].getCards().size()
+						- 1 != finalState.getPlayerCards()[playerTurn].getCards().size()) {
+					HeartsUtil.throwErr("Player played a card, but their hand size did not go down.");
+					return null;
+				}
+
+				if (stateParam.getCenterPile().getCards().size() + 1 != finalState.getCenterPile().getCards().size()) {
+					HeartsUtil.throwErr("A card was played, but the center pile size did not increase");
+					return null;
+				}
+			}
+
+			return finalState;
 
 		}
 
@@ -206,6 +299,9 @@ public class Main {
 		return null;
 
 	}
+
+	// TODO: The player holding the 2 of clubs after the pass makes the opening
+	// lead.
 
 	static List<Action> generatePossibleMoves(State state) {
 
@@ -242,8 +338,10 @@ public class Main {
 
 			if (cards.size() != 0) {
 
-				// If this is the first player, they are free to choose any card.
-				if (state.getPlayerTurn() == state.getSlowState().getStartingPlayerIndex()) {
+				// If this is the first player, and this is the start of a new round, then they
+				// are free to choose any card.
+				if (state.getCenterPile().getCards().size() == 0
+						&& state.getPlayerTurn() == state.getSlowState().getStartingPlayerIndex()) {
 
 					// TODO: Strategy - playing a queen of spades on a particular player, based on
 					// their point total.
@@ -311,6 +409,7 @@ public class Main {
 //					}
 
 				} else {
+					// Second, third, or fourth player, by turn order
 
 					Card topCard = state.getCenterPile().getTopCard();
 
@@ -320,14 +419,14 @@ public class Main {
 					if (playerCards.getCards().stream().anyMatch(card -> card.getSuit() == topCard.getSuit())) {
 						validCardsToPlay = playerCards.getCards().stream()
 								.filter(card -> card.getSuit() == topCard.getSuit()).collect(Collectors.toList());
+					} else {
+						// otherwise, they can play anything
+						validCardsToPlay = playerCards.getCards();
 					}
 
-					// ... otherwise, they must match the top card if they can.
+					actions.addAll(generateValidPlayActions(validCardsToPlay));
 
 				}
-
-//				hi
-				// Do we have a matching suit?
 
 			} else {
 				actions.add(SkipRound.INSTANCE);

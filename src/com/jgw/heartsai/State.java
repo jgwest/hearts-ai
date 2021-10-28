@@ -38,6 +38,10 @@ public final class State {
 		this.slowState = slowState;
 	}
 
+	public StateBuilder mutate() {
+		return new StateBuilder(this);
+	}
+
 	public Phase getPhase() {
 		return phase;
 	}
