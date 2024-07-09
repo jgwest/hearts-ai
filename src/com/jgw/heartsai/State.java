@@ -20,18 +20,21 @@ public final class State {
 	/** Cards that the player is passing to the next player. */
 	private final CardPile[] playerPassCards;
 
-	private final CardPile centerPile;
+	private final Card[/* player index */] turnCardsPlayed;
+
+//	private final CardPile centerPile;
 	private final Phase phase;
 	private final int playerTurn;
 
 	private final SlowState slowState;
 
-	public State(CardPile[] playerCards, CardPile centerPile, CardPile[] playerPassCards, int playerTurn, Phase phase,
-			RoundType roundType, SlowState slowState) {
+	public State(CardPile[] playerCards, /* CardPile centerPile, */ CardPile[] playerPassCards, Card[] turnCardsPlayed,
+			int playerTurn, Phase phase, RoundType roundType, SlowState slowState) {
 
 		this.playerCards = playerCards;
 		this.playerPassCards = playerPassCards;
-		this.centerPile = centerPile;
+		this.turnCardsPlayed = turnCardsPlayed;
+//		this.centerPile = centerPile;
 		this.playerTurn = playerTurn;
 		this.phase = phase;
 		this.roundType = roundType;
@@ -62,23 +65,29 @@ public final class State {
 		return playerPassCards;
 	}
 
-	public CardPile getCenterPile() {
-		return centerPile;
-	}
+//	public CardPile getCenterPile() {
+//		return centerPile;
+//	}
 
 	public SlowState getSlowState() {
 		return slowState;
 	}
 
+	public Card[] getTurnCardsPlayed() {
+		return turnCardsPlayed;
+	}
+
+	// TODO: Remove these to methods
+
 	public State toPhase(Phase newPhase) {
-		State newState = new State(playerCards, centerPile, playerPassCards, playerTurn, newPhase, roundType,
-				slowState);
+		State newState = new State(playerCards, /* centerPile, */ playerPassCards, turnCardsPlayed, playerTurn,
+				newPhase, roundType, slowState);
 		return newState;
 	}
 
 	public State toPlayerTurn(int newPlayerTurn) {
-		State newState = new State(playerCards, centerPile, playerPassCards, newPlayerTurn, phase, roundType,
-				slowState);
+		State newState = new State(playerCards, /* centerPile, */ playerPassCards, turnCardsPlayed, newPlayerTurn,
+				phase, roundType, slowState);
 
 		return newState;
 	}
@@ -93,8 +102,8 @@ public final class State {
 				newPlayerCards[x] = cp;
 			}
 		}
-		State newState = new State(newPlayerCards, centerPile, playerPassCards, playerTurn, phase, roundType,
-				slowState);
+		State newState = new State(newPlayerCards, /* centerPile, */ playerPassCards, turnCardsPlayed, playerTurn,
+				phase, roundType, slowState);
 
 		return newState;
 
@@ -114,21 +123,21 @@ public final class State {
 			}
 		}
 
-		State newState = new State(playerCards, centerPile, newPlayerPassCards, playerTurn, phase, roundType,
-				slowState);
+		State newState = new State(playerCards, /* centerPile, */ newPlayerPassCards, turnCardsPlayed, playerTurn,
+				phase, roundType, slowState);
 
 		return newState;
 	}
 
-	public State replaceCenterPile(CardPile newCentralCardPile) {
-
-		if (this.phase != Phase.PLAY) {
-			HeartsUtil.throwErr("Invalid phase");
-		}
-
-		State newState = new State(playerCards, newCentralCardPile, playerPassCards, playerTurn, phase, roundType,
-				slowState);
-
-		return newState;
-	}
+//	public State replaceCenterPile(CardPile newCentralCardPile) {
+//
+//		if (this.phase != Phase.PLAY) {
+//			HeartsUtil.throwErr("Invalid phase");
+//		}
+//
+//		State newState = new State(playerCards, newCentralCardPile, playerPassCards, turnCardsPlayed, playerTurn, phase,
+//				roundType, slowState);
+//
+//		return newState;
+//	}
 }

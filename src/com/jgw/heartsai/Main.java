@@ -20,6 +20,8 @@ import com.jgw.heartsai.util.HeartsUtil;
 
 public class Main {
 
+	private static final List<Integer> playerIndicesList = Arrays.asList(0, 1, 2, 3);
+
 	public static void main(String[] args) {
 
 		AnsiConsole.systemInstall();
@@ -50,10 +52,10 @@ public class Main {
 			playerPiles[playerIndex] = CardPile.EMPTY.addCards(playerCards);
 		}
 
-		SlowState slowState = new SlowState(0);
+		SlowState slowState = new SlowState(0, false);
 
-		State initialState = new State(playerPiles, centerPile, new CardPile[4], 0, Phase.INITIAL, RoundType.PASS_GT,
-				slowState);
+		State initialState = new State(playerPiles, /* centerPile, */new CardPile[4], new Card[4], 0, Phase.INITIAL,
+				RoundType.PASS_GT, slowState);
 
 		// -----------------
 
@@ -108,7 +110,6 @@ public class Main {
 			state = state.replacePlayerPassCards(playerTurn, newPlayerPassCards);
 		}
 
-		// TODO: This is wrong, should use 2 of clubs.
 		// Update to next player turn
 		int nextPlayer = (playerTurn + 1) % 4;
 		state = state.setPlayerTurn(nextPlayer);
@@ -166,9 +167,13 @@ public class Main {
 
 	}
 
+	// TODO: Need to add whether hearts has been led
+
 	private static State finalizePassRound(State stateParam) {
 
 		StateBuilder state = stateParam.mutate();
+
+		boolean twoOfClubsFound = false;
 
 		// Pass all four players cards to the appropriate receiver
 		for (int sourcePlayerIndex = 0; sourcePlayerIndex < 4; sourcePlayerIndex++) {
@@ -201,6 +206,16 @@ public class Main {
 			CardPile newTargetPlayerHand = stateParam.getPlayerCards()[targetPlayerIndex]
 					.addCards(cardsToPass.getCards());
 
+			if (newTargetPlayerHand.getCards().contains(Card.TWO_OF_CLUBS)) {
+				state = state.setSlowState(new SlowState(targetPlayerIndex, false));
+				state = state.setPlayerTurn(targetPlayerIndex);
+				if (twoOfClubsFound) {
+					HeartsUtil.throwErr("Two of clubs found twice");
+					return null;
+				}
+				twoOfClubsFound = true;
+			}
+
 			state = state.replacePlayerHand(targetPlayerIndex, newTargetPlayerHand);
 
 			// Clear the player pass cards
@@ -212,6 +227,11 @@ public class Main {
 		state = state.setPhase(Phase.PLAY);
 
 		State finalState = state.build();
+
+		if (!twoOfClubsFound) {
+			HeartsUtil.throwErr("Unable to locate two of clubs at end of pass phase.");
+			return null;
+		}
 
 		// If we switch to 'play' phase, make sure our invariants are still true.
 		if (Arrays.asList(finalState.getPlayerPassCards()).stream().anyMatch(cards -> cards.getCards().size() != 0)) {
@@ -248,21 +268,30 @@ public class Main {
 				return null;
 			}
 
-			boolean cardPlayed = false;
+			Card cardPlayed = null;
 
 			if (action.getType() == ActionType.PLAY_CARD) {
 
 				PlayCard playCardAction = (PlayCard) action;
 
-				// Add the card to the center pile
-				CardPile newCenterPile = stateParam.getCenterPile().addCards(playCardAction.getCard());
-				state = state.setCenterPile(newCenterPile);
+				// Add the card to the player's played cards this turn
+				Card[] newTurnCardsPlayed = new Card[4];
+				System.arraycopy(stateParam.getTurnCardsPlayed(), 0, newTurnCardsPlayed, 0, 4);
+				if (newTurnCardsPlayed[playerTurn] != null) {
+					HeartsUtil.throwErr("Invalid action: " + action);
+					return null;
+				}
+				newTurnCardsPlayed[playerTurn] = playCardAction.getCard();
+				state = state.setTurnCardsPlayed(newTurnCardsPlayed);
+
+//				CardPile newCenterPile = stateParam.getCenterPile().addCards(playCardAction.getCard());
+//				state = state.setCenterPile(newCenterPile);
 
 				// Remove the card from the player's hand
 				CardPile newPlayerCards = stateParam.getPlayerCards()[playerTurn].removeCards(playCardAction.getCard());
 				state = state.replacePlayerHand(playerTurn, newPlayerCards);
 
-				cardPlayed = true;
+				cardPlayed = playCardAction.getCard();
 
 			} else if (action.getType() == ActionType.SKIP_ROUND) {
 				// No action needed.
@@ -271,24 +300,74 @@ public class Main {
 				return null;
 			}
 
-			// Update to next player turn
-			state = state.setPlayerTurn((playerTurn + 1) % 4);
-			// TODO: This is wrong.
+			int nextPlayerTurn = (playerTurn + 1) % 4;
+			if (nextPlayerTurn == stateParam.getSlowState().getStartingPlayerIndex()) {
+				// The turn has ended
+
+				if (cardPlayed != null && (cardPlayed.getSuit() == Suit.HEARTS || cardPlayed == Card.QUEEN_OF_SPADES)) {
+					// TODO: Replace this with a dual state mutate (both next starting index and
+					// whether hearts may be led)
+					state = state.setSlowState(stateParam.getSlowState().mutateHeartsMayBeLed(true));
+				}
+
+				State finalState = state.build();
+
+				return completeRound(finalState);
+
+//				Card firstCardPlayed = finalState.getTurnCardsPlayed()[finalState.getSlowState()
+//						.getStartingPlayerIndex()];
+//
+//				int trickWonByPlayerIndex = playerIndicesList.stream().filter(index -> {
+//					// Only players that played a matching suit
+//					Card lambdaCardPlayed = finalState.getTurnCardsPlayed()[index];
+//					return lambdaCardPlayed != null && lambdaCardPlayed.getSuit() == firstCardPlayed.getSuit();
+//					// Find player that played the highest matching card
+//				}).sorted((a, b) -> finalState.getTurnCardsPlayed()[b].getNumberStrength()
+//						- finalState.getTurnCardsPlayed()[a].getNumberStrength()).findFirst().get();
+//
+//				int pointsValue = Arrays.asList(finalState.getTurnCardsPlayed()).stream()
+//						.map(card -> card.getPointsValue()).reduce((a, b) -> a + b).get();
+//
+//				return finalState;
+
+				// TODO: Next - Handle end of round
+				// TODO: Need to keep track of which cards a player has played? Or points?
+				// (for game simulation, only points)
+				// TODO: Need to keep track of cards played in a round, by player
+
+				// - Look at the cards that each player has played
+				// - Find the player that played the highest card matching the suit of the first
+				// card played
+				// - Give them the points
+				// - They start the turn next. (unless they have no cards left, then ?)
+
+			} else {
+				// Update to next player turn
+				state = state.setPlayerTurn(nextPlayerTurn);
+				if (cardPlayed != null && (cardPlayed.getSuit() == Suit.HEARTS || cardPlayed == Card.QUEEN_OF_SPADES)) {
+					state = state.setSlowState(stateParam.getSlowState().mutateHeartsMayBeLed(true));
+				}
+			}
 
 			State finalState = state.build();
 
 			// Verify our state invariant has not changed.
-			if (cardPlayed) {
+			if (cardPlayed != null) {
 				if (stateParam.getPlayerCards()[playerTurn].getCards().size()
 						- 1 != finalState.getPlayerCards()[playerTurn].getCards().size()) {
 					HeartsUtil.throwErr("Player played a card, but their hand size did not go down.");
 					return null;
 				}
 
-				if (stateParam.getCenterPile().getCards().size() + 1 != finalState.getCenterPile().getCards().size()) {
-					HeartsUtil.throwErr("A card was played, but the center pile size did not increase");
+				if (finalState.getTurnCardsPlayed()[playerTurn] != cardPlayed) {
+					HeartsUtil.throwErr("A card was played, but turnsCardsPlayed was not updated.");
 					return null;
 				}
+
+//				if (stateParam.getCenterPile().getCards().size() + 1 != finalState.getCenterPile().getCards().size()) {
+//					HeartsUtil.throwErr("A card was played, but the center pile size did not increase");
+//					return null;
+//				}
 			}
 
 			return finalState;
@@ -300,8 +379,29 @@ public class Main {
 
 	}
 
-	// TODO: The player holding the 2 of clubs after the pass makes the opening
-	// lead.
+	private static State completeRound(State inputState) {
+
+		Card firstCardPlayed = inputState.getTurnCardsPlayed()[inputState.getSlowState().getStartingPlayerIndex()];
+
+		int trickWonByPlayerIndex = playerIndicesList.stream().filter(index -> {
+			// Only players that played a matching suit
+			Card lambdaCardPlayed = inputState.getTurnCardsPlayed()[index];
+			return lambdaCardPlayed != null && lambdaCardPlayed.getSuit() == firstCardPlayed.getSuit();
+			// Find player that played the highest matching card
+		}).sorted((a, b) -> inputState.getTurnCardsPlayed()[b].getNumberStrength()
+				- inputState.getTurnCardsPlayed()[a].getNumberStrength()).findFirst().get();
+
+		int pointsValue = Arrays.asList(inputState.getTurnCardsPlayed()).stream().map(card -> card.getPointsValue())
+				.reduce((a, b) -> a + b).get();
+
+		// - Look at the cards that each player has played
+		// - Find the player that played the highest card matching the suit of the first
+		// card played
+		// - Give them the points
+		// - They start the turn next. (unless they have no cards left, then ?)
+
+		return null;
+	}
 
 	static List<Action> generatePossibleMoves(State state) {
 
@@ -336,82 +436,33 @@ public class Main {
 			CardPile playerCards = state.getPlayerCards()[state.getPlayerTurn()];
 			List<Card> cards = new ArrayList<>(playerCards.getCards());
 
+			// TODO: Implement this rule: However, if a player has no clubs when the first
+			// trick is led, a heart or the queen of spades cannot be discarded.
+
 			if (cards.size() != 0) {
 
+//				boolean firstRound = Arrays.asList(state.getTurnCardsPlayed()).stream().allMatch(card -> card == null);
+
 				// If this is the first player, and this is the start of a new round, then they
-				// are free to choose any card.
-				if (state.getCenterPile().getCards().size() == 0
-						&& state.getPlayerTurn() == state.getSlowState().getStartingPlayerIndex()) {
+				// are free to choose any card (but may not be able to lead hearts)
+				if (/*
+					 * state.getCenterPile().getCards().size() == 0 &&
+					 */ state.getPlayerTurn() == state.getSlowState().getStartingPlayerIndex()) {
 
 					// TODO: Strategy - playing a queen of spades on a particular player, based on
 					// their point total.
 
-					actions.addAll(generateValidPlayActions(playerCards.getCards()));
-
-//					// If queen of spades in hand, add an action for it
-//					if (playerCards.getCards().stream().anyMatch(card -> card == Card.QUEEN_OF_SPADES)) {
-//						actions.add(PlayCard.PASS_CARD_ACTIONS[Card.QUEEN_OF_SPADES.getAbsoluteIndex()]);
-//					}
-//
-//					ArrayList<Card> sortedCards = new ArrayList<Card>(playerCards.getCards().stream()
-//							.filter(card -> card != Card.QUEEN_OF_SPADES).collect(Collectors.toList()));
-//					Collections.shuffle(sortedCards);
-//					Collections.sort(sortedCards, (a, b) -> {
-//						return a.getNumberStrength() - b.getNumberStrength();
-//					});
-//
-//					// Add highest and lowest non hearts as actions.
-//					{
-//						Card highestNonHeart = null;
-//						Card lowestNonHeart = null;
-//						List<Card> nonHearts = sortedCards.stream().filter(card -> card.getSuit() != Suit.HEARTS)
-//								.collect(Collectors.toList());
-//
-//						if (nonHearts.size() > 0) {
-//							lowestNonHeart = nonHearts.get(0);
-//							highestNonHeart = nonHearts.get(nonHearts.size() - 1);
-//							if (lowestNonHeart == highestNonHeart) {
-//								highestNonHeart = null;
-//							}
-//						}
-//
-//						if (highestNonHeart != null) {
-//							actions.add(PlayCard.PASS_CARD_ACTIONS[highestNonHeart.getAbsoluteIndex()]);
-//						}
-//						if (lowestNonHeart != null) {
-//							actions.add(PlayCard.PASS_CARD_ACTIONS[lowestNonHeart.getAbsoluteIndex()]);
-//						}
-//
-//					}
-//
-//					// Add highest and lowest non hearts as actions
-//					{
-//						Card highestHeart = null;
-//						Card lowestHeart = null;
-//
-//						List<Card> hearts = sortedCards.stream().filter(card -> card.getSuit() == Suit.HEARTS)
-//								.collect(Collectors.toList());
-//
-//						if (hearts.size() > 0) {
-//							lowestHeart = hearts.get(0);
-//							highestHeart = hearts.get(hearts.size() - 1);
-//							if (lowestHeart == highestHeart) {
-//								highestHeart = null;
-//							}
-//						}
-//
-//						if (highestHeart != null) {
-//							actions.add(PlayCard.PASS_CARD_ACTIONS[highestHeart.getAbsoluteIndex()]);
-//						}
-//						if (lowestHeart != null) {
-//							actions.add(PlayCard.PASS_CARD_ACTIONS[lowestHeart.getAbsoluteIndex()]);
-//						}
-//					}
+					actions.addAll(
+							generateValidPlayActions(playerCards.getCards(), state.getSlowState().isHeartsMayBeLed()));
 
 				} else {
 					// Second, third, or fourth player, by turn order
 
-					Card topCard = state.getCenterPile().getTopCard();
+					Card topCard = state.getTurnCardsPlayed()[state.getSlowState().getStartingPlayerIndex()];
+					if (topCard == null) {
+						HeartsUtil.throwErr("No top card found for state: " + state);
+						return null;
+					}
 
 					List<Card> validCardsToPlay;
 
@@ -424,7 +475,9 @@ public class Main {
 						validCardsToPlay = playerCards.getCards();
 					}
 
-					actions.addAll(generateValidPlayActions(validCardsToPlay));
+					// 2nd, 3rd, and 4th player have the option of playing hearts (if they are not
+					// suit restricted)
+					actions.addAll(generateValidPlayActions(validCardsToPlay, true));
 
 				}
 
@@ -436,9 +489,15 @@ public class Main {
 		return actions;
 	}
 
-	private static List<Action> generateValidPlayActions(List<Card> cardsParam) {
+	private static List<Action> generateValidPlayActions(List<Card> cardsParam, boolean mayPlayHearts) {
 
 		List<Action> actions = new ArrayList<>();
+
+		// Must play two of clubs, if it is present.
+		if (cardsParam.stream().anyMatch(card -> card == Card.TWO_OF_CLUBS)) {
+			actions.add(PlayCard.PASS_CARD_ACTIONS[Card.TWO_OF_CLUBS.getAbsoluteIndex()]);
+			return actions;
+		}
 
 		// If queen of spades in hand, add an action for it
 		if (cardsParam.stream().anyMatch(card -> card == Card.QUEEN_OF_SPADES)) {
@@ -476,8 +535,8 @@ public class Main {
 
 		}
 
-		// Add highest and lowest non hearts as actions
-		{
+		// Add highest and lowest hearts as actions
+		if (mayPlayHearts) {
 			Card highestHeart = null;
 			Card lowestHeart = null;
 

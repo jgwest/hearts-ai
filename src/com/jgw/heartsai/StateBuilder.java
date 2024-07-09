@@ -14,7 +14,8 @@ public class StateBuilder {
 	/** Cards that the player is passing to the next player. */
 	private CardPile[] playerPassCards;
 
-	private CardPile centerPile;
+//	private CardPile centerPile;
+	private Card[] turnCardsPlayed;
 	private Phase phase;
 	private int playerTurn;
 
@@ -25,7 +26,8 @@ public class StateBuilder {
 		roundType = state.getRoundType();
 		playerCards = state.getPlayerCards();
 		playerPassCards = state.getPlayerPassCards();
-		centerPile = state.getCenterPile();
+		turnCardsPlayed = state.getTurnCardsPlayed();
+//		centerPile = state.getCenterPile();
 		phase = state.getPhase();
 		playerTurn = state.getPlayerTurn();
 		slowState = state.getSlowState();
@@ -47,15 +49,15 @@ public class StateBuilder {
 		return this;
 	}
 
-	public StateBuilder setCenterPile(CardPile centerPile) {
-
-		if (this.phase != Phase.PLAY) {
-			HeartsUtil.throwErr("Invalid phase");
-		}
-
-		this.centerPile = centerPile;
-		return this;
-	}
+//	public StateBuilder setCenterPile(CardPile centerPile) {
+//
+//		if (this.phase != Phase.PLAY) {
+//			HeartsUtil.throwErr("Invalid phase");
+//		}
+//
+//		this.centerPile = centerPile;
+//		return this;
+//	}
 
 	public StateBuilder setPhase(Phase phase) {
 		this.phase = phase;
@@ -69,6 +71,14 @@ public class StateBuilder {
 
 	public StateBuilder setSlowState(SlowState slowState) {
 		this.slowState = slowState;
+		return this;
+	}
+
+	public StateBuilder setTurnCardsPlayed(Card[] turnCardsPlayed) {
+		if (this.phase != Phase.PLAY) {
+			HeartsUtil.throwErr("Invalid phase");
+		}
+		this.turnCardsPlayed = turnCardsPlayed;
 		return this;
 	}
 
@@ -106,19 +116,9 @@ public class StateBuilder {
 
 	}
 
-//	public StateBuilder replaceCenterPile(CardPile newCenterCardPile) {
-//
-//		if (this.phase != Phase.PLAY) {
-//			HeartsUtil.throwErr("Invalid phase");
-//		}
-//
-//		this.centerPile = newCenterCardPile;
-//
-//		return this;
-//	}
-
 	public State build() {
-		return new State(playerCards, centerPile, playerPassCards, playerTurn, phase, roundType, slowState);
+		return new State(playerCards, /* centerPile, */ playerPassCards, turnCardsPlayed, playerTurn, phase, roundType,
+				slowState);
 	}
 
 }

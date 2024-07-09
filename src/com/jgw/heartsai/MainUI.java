@@ -28,7 +28,8 @@ public class MainUI {
 			if (state.getPlayerTurn() == state.getSlowState().getStartingPlayerIndex()) {
 				System.out.println("Top card: N/A");
 			} else {
-				System.out.println("Top card: " + state.getCenterPile().getTopCard().toStringUI());
+				Card topCard = state.getTurnCardsPlayed()[state.getSlowState().getStartingPlayerIndex()];
+				System.out.println("Top card: " + topCard);
 			}
 
 		}
@@ -51,7 +52,7 @@ public class MainUI {
 
 		if (actions.size() == 1) {
 			Action action = actions.get(0);
-			System.out.println("* Automatically choosing action: " + action);
+			System.out.println("* Automatically choosing action: " + action.toStringUI());
 			return action;
 		}
 

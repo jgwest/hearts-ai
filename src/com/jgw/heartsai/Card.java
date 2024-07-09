@@ -17,6 +17,8 @@ public final class Card {
 
 	public final static Card QUEEN_OF_SPADES;
 
+	public final static Card TWO_OF_CLUBS;
+
 	public final static List<Card> ALL_CARDS;
 
 	private final int number;
@@ -26,8 +28,6 @@ public final class Card {
 
 	static {
 
-		Card queenOfSpades;
-
 		List<Card> cards = new ArrayList<>();
 
 		Arrays.asList(Suit.values()).forEach(suit -> {
@@ -36,9 +36,13 @@ public final class Card {
 			});
 		});
 
-		queenOfSpades = cards.stream().filter(card -> card.getNumber() == QUEEN && card.getSuit() == Suit.SPADES)
+		Card queenOfSpades = cards.stream().filter(card -> card.getNumber() == QUEEN && card.getSuit() == Suit.SPADES)
 				.findFirst().get();
 		QUEEN_OF_SPADES = queenOfSpades;
+
+		Card twoOfClubs = cards.stream().filter(card -> card.getNumber() == 2 && card.getSuit() == Suit.CLUBS)
+				.findFirst().get();
+		TWO_OF_CLUBS = twoOfClubs;
 
 		ALL_CARDS = Collections.unmodifiableList(cards);
 
