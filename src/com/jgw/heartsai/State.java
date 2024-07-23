@@ -20,6 +20,7 @@ public final class State {
 	/** Cards that the player is passing to the next player. */
 	private final CardPile[] playerPassCards;
 
+	// The cards that each player has played this turn
 	private final Card[/* player index */] turnCardsPlayed;
 
 //	private final CardPile centerPile;
@@ -53,6 +54,7 @@ public final class State {
 		return playerTurn;
 	}
 
+	// TODO: This should be in slow state
 	public RoundType getRoundType() {
 		return roundType;
 	}

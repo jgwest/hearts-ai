@@ -7,6 +7,8 @@ import java.util.Scanner;
 
 import com.jgw.heartsai.State.Phase;
 import com.jgw.heartsai.actions.Action;
+import com.jgw.heartsai.ui.AnsiGrid;
+import com.jgw.heartsai.ui.AnsiGridPanel;
 import com.jgw.heartsai.util.HeartsUtil;
 
 public class MainUI {
@@ -26,10 +28,37 @@ public class MainUI {
 		if (state.getPhase() == Phase.PLAY) {
 
 			if (state.getPlayerTurn() == state.getSlowState().getStartingPlayerIndex()) {
-				System.out.println("Top card: N/A");
+				System.out.println("Cards played: N/A");
 			} else {
-				Card topCard = state.getTurnCardsPlayed()[state.getSlowState().getStartingPlayerIndex()];
-				System.out.println("Top card: " + topCard);
+
+				String cardsPlayed = "Cards played: ";
+				int x = state.getSlowState().getStartingPlayerIndex();
+				do {
+
+					Card cardPlayed = state.getTurnCardsPlayed()[x];
+					if (cardPlayed != null) {
+						cardsPlayed += cardPlayed.toStringUI() + " ";
+					}
+
+					x = (x + 1) % 4;
+				} while (x != state.getSlowState().getStartingPlayerIndex());
+
+//				for (int x = state.getSlowState().getStartingPlayerIndex()
+//						+ 1; x != (state.getSlowState().getStartingPlayerIndex() + 3) % 4; x++) {
+//
+//					Card cardPlayed = state.getTurnCardsPlayed()[x];
+//					if (cardPlayed == null) {
+//						continue;
+//					}
+//
+//					cardsPlayed += cardPlayed.toStringUI();
+//
+//				}
+
+				System.out.println(cardsPlayed);
+
+//				Card topCard = state.getTurnCardsPlayed()[((state.getPlayerTurn() - 1 + 4) % 4)];
+//				System.out.println("Top card: " + topCard);
 			}
 
 		}
@@ -39,12 +68,57 @@ public class MainUI {
 
 	}
 
+	private static void printUICurrentStateNew(State state) {
+
+		if (state.getPhase() == Phase.INITIAL) {
+			throw new RuntimeException();
+		}
+
+//		Ansi ansi = Ansi.ansi();
+//		ansi.append("");
+
+		AnsiGrid grid = new AnsiGrid();
+		AnsiGridPanel leftPanel = grid.createNewPanel();
+		AnsiGridPanel rightPanel = grid.createNewPanel();
+
+		rightPanel.addLineToPanel("Phase: " + state.getPhase().name());
+
+		if (state.getPhase() == Phase.PASS) {
+			rightPanel.addLineToPanel("Player #: " + state.getPlayerTurn());
+		}
+
+		if (state.getPhase() == Phase.PLAY) {
+
+			if (state.getPlayerTurn() == state.getSlowState().getStartingPlayerIndex()) {
+				rightPanel.addLineToPanel("Top card: N/A");
+			} else {
+				Card topCard = state.getTurnCardsPlayed()[state.getSlowState().getStartingPlayerIndex()];
+				rightPanel.addLineToPanel("Top card: " + topCard);
+			}
+
+		}
+
+		CardPile playerCards = state.getPlayerCards()[state.getPlayerTurn()];
+//		System.out.println(cardList(playerCards.getCards()));
+
+		leftPanel.addLineToPanel(cardList(playerCards.getCards()));
+
+		System.out.println(grid.render(50));
+
+	}
+
 	public static Action getPlayerAction(State state) {
 
 		printUICurrentState(state);
 		System.out.println();
 
-		List<Action> actions = Main.generatePossibleMoves(state);
+		List<Action> actions;
+		try {
+			actions = Main.generatePossibleMoves(state);
+		} catch (Throwable t) {
+			t.printStackTrace();
+			actions = Main.generatePossibleMoves(state); // TODO: REMOVE THIS.
+		}
 
 		if (actions.size() == 0) {
 			HeartsUtil.throwErr("End of game?");

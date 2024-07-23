@@ -3,7 +3,7 @@ package com.jgw.heartsai.actions;
 public abstract class Action {
 
 	public static enum ActionType {
-		PASS_3_CARDS, PLAY_CARD, SKIP_ROUND
+		PASS_3_CARDS, PLAY_CARD, SKIP_ROUND_DELETE
 	}
 
 	protected Action() {

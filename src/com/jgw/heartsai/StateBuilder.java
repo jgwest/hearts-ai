@@ -21,6 +21,8 @@ public class StateBuilder {
 
 	private SlowState slowState;
 
+	private boolean debugSlowStateAlreadySet = false;
+
 	public StateBuilder(State state) {
 
 		roundType = state.getRoundType();
@@ -70,6 +72,14 @@ public class StateBuilder {
 	}
 
 	public StateBuilder setSlowState(SlowState slowState) {
+
+		if (debugSlowStateAlreadySet) {
+			HeartsUtil.throwErr("SlowState already set once.");
+			return this;
+		}
+
+		debugSlowStateAlreadySet = true;
+
 		this.slowState = slowState;
 		return this;
 	}

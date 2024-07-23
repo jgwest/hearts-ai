@@ -15,7 +15,6 @@ import com.jgw.heartsai.actions.Action;
 import com.jgw.heartsai.actions.Action.ActionType;
 import com.jgw.heartsai.actions.PassThreeCards;
 import com.jgw.heartsai.actions.PlayCard;
-import com.jgw.heartsai.actions.SkipRound;
 import com.jgw.heartsai.util.HeartsUtil;
 
 public class Main {
@@ -26,36 +25,32 @@ public class Main {
 
 		AnsiConsole.systemInstall();
 
-//		System.out.println(Ansi.ansi().fgRed().a("Hi").reset());
+//		CardPile centerPile = CardPile.EMPTY;
+//		{
+//			List<Card> cards = Card.ALL_CARDS;
+//
+//			centerPile = centerPile.addCards(cards.toArray(new Card[cards.size()]));
+//		}
+//
+//		centerPile = centerPile.shuffle();
+//
+//		CardPile[] playerPiles = new CardPile[4];
+//
+//		for (int playerIndex = 0; playerIndex < 4; playerIndex++) {
+//			List<Card> playerCards = new ArrayList<>();
+//			centerPile = centerPile.removeCardsFromTop(13, playerCards);
+//
+//			playerPiles[playerIndex] = CardPile.EMPTY.addCards(playerCards);
+//		}
+//
+//		// TODO: I have player round points, but I need player game points
+//
+//		SlowState slowState = new SlowState(0, false, new short[4]);
+//
+//		State initialState = new State(playerPiles, /* centerPile, */new CardPile[4], new Card[4], 0, Phase.INITIAL,
+//				RoundType.PASS_GT, slowState);
 
-		CardPile centerPile = CardPile.EMPTY;
-		{
-			List<Card> cards = Card.ALL_CARDS;
-
-//			Arrays.asList(Suit.values()).forEach(suit -> {
-//				IntStream.range(1, 14).forEach(val -> {
-//					cards.add(new Card(val, suit));
-//				});
-//			});
-
-			centerPile = centerPile.addCards(cards.toArray(new Card[cards.size()]));
-		}
-
-		centerPile = centerPile.shuffle();
-
-		CardPile[] playerPiles = new CardPile[4];
-
-		for (int playerIndex = 0; playerIndex < 4; playerIndex++) {
-			List<Card> playerCards = new ArrayList<>();
-			centerPile = centerPile.removeCardsFromTop(13, playerCards);
-
-			playerPiles[playerIndex] = CardPile.EMPTY.addCards(playerCards);
-		}
-
-		SlowState slowState = new SlowState(0, false);
-
-		State initialState = new State(playerPiles, /* centerPile, */new CardPile[4], new Card[4], 0, Phase.INITIAL,
-				RoundType.PASS_GT, slowState);
+		State initialState = startNewHand(null);
 
 		// -----------------
 
@@ -167,8 +162,6 @@ public class Main {
 
 	}
 
-	// TODO: Need to add whether hearts has been led
-
 	private static State finalizePassRound(State stateParam) {
 
 		StateBuilder state = stateParam.mutate();
@@ -207,7 +200,7 @@ public class Main {
 					.addCards(cardsToPass.getCards());
 
 			if (newTargetPlayerHand.getCards().contains(Card.TWO_OF_CLUBS)) {
-				state = state.setSlowState(new SlowState(targetPlayerIndex, false));
+				state = state.setSlowState(stateParam.getSlowState().mutateStartingIndex(targetPlayerIndex));
 				state = state.setPlayerTurn(targetPlayerIndex);
 				if (twoOfClubsFound) {
 					HeartsUtil.throwErr("Two of clubs found twice");
@@ -263,7 +256,7 @@ public class Main {
 
 			StateBuilder state = stateParam.mutate();
 
-			if (action.getType() != ActionType.PLAY_CARD && action.getType() != ActionType.SKIP_ROUND) {
+			if (action.getType() != ActionType.PLAY_CARD/* && action.getType() != ActionType.SKIP_ROUND */) {
 				HeartsUtil.throwErr("Invalid action: " + action);
 				return null;
 			}
@@ -284,17 +277,14 @@ public class Main {
 				newTurnCardsPlayed[playerTurn] = playCardAction.getCard();
 				state = state.setTurnCardsPlayed(newTurnCardsPlayed);
 
-//				CardPile newCenterPile = stateParam.getCenterPile().addCards(playCardAction.getCard());
-//				state = state.setCenterPile(newCenterPile);
-
 				// Remove the card from the player's hand
 				CardPile newPlayerCards = stateParam.getPlayerCards()[playerTurn].removeCards(playCardAction.getCard());
 				state = state.replacePlayerHand(playerTurn, newPlayerCards);
 
 				cardPlayed = playCardAction.getCard();
 
-			} else if (action.getType() == ActionType.SKIP_ROUND) {
-				// No action needed.
+//			} else if (action.getType() == ActionType.SKIP_ROUND) {
+//				// No action needed.
 			} else {
 				HeartsUtil.throwErr("Unexpected action: " + action);
 				return null;
@@ -305,41 +295,12 @@ public class Main {
 				// The turn has ended
 
 				if (cardPlayed != null && (cardPlayed.getSuit() == Suit.HEARTS || cardPlayed == Card.QUEEN_OF_SPADES)) {
-					// TODO: Replace this with a dual state mutate (both next starting index and
-					// whether hearts may be led)
 					state = state.setSlowState(stateParam.getSlowState().mutateHeartsMayBeLed(true));
 				}
 
 				State finalState = state.build();
 
 				return completeRound(finalState);
-
-//				Card firstCardPlayed = finalState.getTurnCardsPlayed()[finalState.getSlowState()
-//						.getStartingPlayerIndex()];
-//
-//				int trickWonByPlayerIndex = playerIndicesList.stream().filter(index -> {
-//					// Only players that played a matching suit
-//					Card lambdaCardPlayed = finalState.getTurnCardsPlayed()[index];
-//					return lambdaCardPlayed != null && lambdaCardPlayed.getSuit() == firstCardPlayed.getSuit();
-//					// Find player that played the highest matching card
-//				}).sorted((a, b) -> finalState.getTurnCardsPlayed()[b].getNumberStrength()
-//						- finalState.getTurnCardsPlayed()[a].getNumberStrength()).findFirst().get();
-//
-//				int pointsValue = Arrays.asList(finalState.getTurnCardsPlayed()).stream()
-//						.map(card -> card.getPointsValue()).reduce((a, b) -> a + b).get();
-//
-//				return finalState;
-
-				// TODO: Next - Handle end of round
-				// TODO: Need to keep track of which cards a player has played? Or points?
-				// (for game simulation, only points)
-				// TODO: Need to keep track of cards played in a round, by player
-
-				// - Look at the cards that each player has played
-				// - Find the player that played the highest card matching the suit of the first
-				// card played
-				// - Give them the points
-				// - They start the turn next. (unless they have no cards left, then ?)
 
 			} else {
 				// Update to next player turn
@@ -364,10 +325,6 @@ public class Main {
 					return null;
 				}
 
-//				if (stateParam.getCenterPile().getCards().size() + 1 != finalState.getCenterPile().getCards().size()) {
-//					HeartsUtil.throwErr("A card was played, but the center pile size did not increase");
-//					return null;
-//				}
 			}
 
 			return finalState;
@@ -379,28 +336,102 @@ public class Main {
 
 	}
 
+	private static State startNewHand(State inputState) {
+
+		System.out.println("-------- Starting new hand --------");
+
+		// Shuffle cards to players
+		CardPile centerPile = CardPile.EMPTY;
+		{
+			List<Card> cards = Card.ALL_CARDS;
+
+			centerPile = centerPile.addCards(cards.toArray(new Card[cards.size()]));
+		}
+
+		centerPile = centerPile.shuffle();
+
+		CardPile[] playerPiles = new CardPile[4];
+
+		for (int playerIndex = 0; playerIndex < 4; playerIndex++) {
+			List<Card> playerCards = new ArrayList<>();
+			centerPile = centerPile.removeCardsFromTop(13, playerCards);
+
+			playerPiles[playerIndex] = CardPile.EMPTY.addCards(playerCards);
+		}
+
+		// TODO: I have player round points, but I need player game points
+
+		SlowState slowState = null;
+		if (inputState != null) {
+			slowState = inputState.getSlowState();
+		} else {
+			slowState = new SlowState(0, false, new short[4]);
+		}
+
+		slowState = slowState.mutateStartingIndex(0);
+		slowState = slowState.mutateHeartsMayBeLed(false);
+		slowState = slowState.mutatePlayerRoundPoints(new short[4]);
+
+		// Increment the round type, or start with PASS_LT
+		RoundType roundType = RoundType.PASS_LT;
+		if (inputState != null) {
+			roundType = RoundType.values()[(inputState.getRoundType().ordinal() + 1) % RoundType.values().length];
+		}
+
+		State initialState = new State(playerPiles, new CardPile[4], new Card[4], 0, Phase.INITIAL, roundType,
+				slowState);
+
+		return initialState;
+	}
+
 	private static State completeRound(State inputState) {
-
-		Card firstCardPlayed = inputState.getTurnCardsPlayed()[inputState.getSlowState().getStartingPlayerIndex()];
-
-		int trickWonByPlayerIndex = playerIndicesList.stream().filter(index -> {
-			// Only players that played a matching suit
-			Card lambdaCardPlayed = inputState.getTurnCardsPlayed()[index];
-			return lambdaCardPlayed != null && lambdaCardPlayed.getSuit() == firstCardPlayed.getSuit();
-			// Find player that played the highest matching card
-		}).sorted((a, b) -> inputState.getTurnCardsPlayed()[b].getNumberStrength()
-				- inputState.getTurnCardsPlayed()[a].getNumberStrength()).findFirst().get();
-
-		int pointsValue = Arrays.asList(inputState.getTurnCardsPlayed()).stream().map(card -> card.getPointsValue())
-				.reduce((a, b) -> a + b).get();
 
 		// - Look at the cards that each player has played
 		// - Find the player that played the highest card matching the suit of the first
 		// card played
 		// - Give them the points
-		// - They start the turn next. (unless they have no cards left, then ?)
+		// - They start the turn next
+		SlowState newSlowState;
+		{
+			Card firstCardPlayed = inputState.getTurnCardsPlayed()[inputState.getSlowState().getStartingPlayerIndex()];
 
-		return null;
+			int trickWonByPlayerIndex = playerIndicesList.stream().filter(index -> {
+				// Only players that played a matching suit
+				Card lambdaCardPlayed = inputState.getTurnCardsPlayed()[index];
+				return lambdaCardPlayed != null && lambdaCardPlayed.getSuit() == firstCardPlayed.getSuit();
+				// Find player that played the highest matching card
+			}).sorted((a, b) -> inputState.getTurnCardsPlayed()[b].getNumberStrength()
+					- inputState.getTurnCardsPlayed()[a].getNumberStrength()).findFirst().get();
+
+			int pointsValue = Arrays.asList(inputState.getTurnCardsPlayed()).stream().map(card -> card.getPointsValue())
+					.reduce((a, b) -> a + b).get();
+
+			short[] newPlayerRoundPoints = new short[4];
+			System.arraycopy(inputState.getSlowState().getPlayerRoundPoints(), 0, newPlayerRoundPoints, 0,
+					newPlayerRoundPoints.length);
+			newPlayerRoundPoints[trickWonByPlayerIndex] += pointsValue;
+
+			newSlowState = inputState.getSlowState().mutatePlayerRoundPoints(newPlayerRoundPoints)
+					.mutateStartingIndex(trickWonByPlayerIndex);
+		}
+
+		State completedRoundState = inputState.mutate().setSlowState(newSlowState).setTurnCardsPlayed(new Card[4])
+				.setPlayerTurn(newSlowState.getStartingPlayerIndex()).build();
+
+		System.out.println("-------- New Round -------------------");
+
+		if (Arrays.asList(inputState.getPlayerCards()).stream().map(cards -> cards.getCards().size())
+				.reduce((a, b) -> a + b).get() == 0) {
+			// Hand ends
+
+			return startNewHand(completedRoundState);
+
+		} else {
+			// Hand continues
+			return completedRoundState;
+
+		}
+
 	}
 
 	static List<Action> generatePossibleMoves(State state) {
@@ -411,7 +442,7 @@ public class Main {
 			throw new RuntimeException();
 		}
 
-		if (state.getPhase() == Phase.PASS) {
+		else if (state.getPhase() == Phase.PASS) {
 
 			CardPile playerCards = state.getPlayerCards()[state.getPlayerTurn()];
 
@@ -432,7 +463,7 @@ public class Main {
 			actions.add(passHighestCards);
 		}
 
-		if (state.getPhase() == Phase.PLAY) {
+		else if (state.getPhase() == Phase.PLAY) {
 			CardPile playerCards = state.getPlayerCards()[state.getPlayerTurn()];
 			List<Card> cards = new ArrayList<>(playerCards.getCards());
 
@@ -482,8 +513,14 @@ public class Main {
 				}
 
 			} else {
-				actions.add(SkipRound.INSTANCE);
+				HeartsUtil.throwErr("Unexpected state");
 			}
+//			else {
+//				actions.add(SkipRound.INSTANCE);
+//			}
+
+		} else {
+			HeartsUtil.throwErr("Unexpected state.");
 		}
 
 		return actions;
@@ -563,44 +600,44 @@ public class Main {
 
 	}
 
-	private static void doLogic(State state) {
+//	private static void doLogic(State state) {
+//
+//		switch (state.getPhase()) {
+//		case INITIAL:
+//			// Create pass actions,
+//
+//			break;
+//		case PASS:
+//			doLogic_passPhase(state);
+//			break;
+//		case PLAY:
+//			break;
+//		}
+//
+//	}
 
-		switch (state.getPhase()) {
-		case INITIAL:
-			// Create pass actions,
-
-			break;
-		case PASS:
-			doLogic_passPhase(state);
-			break;
-		case PLAY:
-			break;
-		}
-
-	}
-
-	private static void doLogic_passPhase(State state) {
-		if (state.getPlayerTurn() < 4) {
-
-			// strategies:
-			// select lowest cards, hearts and queen
-			// select highest cards, hearts and queen
-			// random
-
-			switch (state.getRoundType()) {
-			case DONT_PASS:
-				break;
-			case PASS_GT:
-				break;
-			case PASS_LT:
-				break;
-			case PASS_PLUS_TWO_MOD_4:
-				break;
-			default:
-				break;
-			}
-
-		}
-
-	}
+//	private static void doLogic_passPhase(State state) {
+//		if (state.getPlayerTurn() < 4) {
+//
+//			// strategies:
+//			// select lowest cards, hearts and queen
+//			// select highest cards, hearts and queen
+//			// random
+//
+//			switch (state.getRoundType()) {
+//			case DONT_PASS:
+//				break;
+//			case PASS_GT:
+//				break;
+//			case PASS_LT:
+//				break;
+//			case PASS_PLUS_TWO_MOD_4:
+//				break;
+//			default:
+//				break;
+//			}
+//
+//		}
+//
+//	}
 }
